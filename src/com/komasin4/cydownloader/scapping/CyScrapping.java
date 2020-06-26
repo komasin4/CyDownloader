@@ -143,7 +143,7 @@ public class CyScrapping extends Common {
 			if(depth != null && depth.equals("depth3"))	{
 				Folder folder = new Folder(el.getElementsByTag("input").attr("value"), el.getElementsByTag("em").text(), el.getElementsByTag("input").attr("name"), depth1Name, depth2Name);
 				folderList.add(folder);
-				DescFieldUtil.AppendString(descField, folder.getDepth1Name() + "/" + folder.getDepth2Name() + "/" + folder.getName());
+				DescFieldUtil.AppendString(descField, "\t" + folder.getDepth1Name() + "/" + folder.getDepth2Name() + "/" + folder.getName());
 				//descField.appendText(folder.getDepth1Name() + "/" + folder.getDepth2Name() + "/" + folder.getName() + "\n");
 				//System.out.println(folder.getDepth1Name() + "/" + folder.getDepth2Name() + "/" + folder.getName() + "\n");
 			}
@@ -157,8 +157,12 @@ public class CyScrapping extends Common {
 	public List<Post> getPostListPageOne(Map<String,String> loginCookie, String tid, Folder folder, TextArea descField) throws Exception	{		
 		//Post 목록 추출
 		List<Post> postList = new ArrayList<Post>();
+		
+		Document posts = null;
+		
+		try	{
 
-		Document posts = Jsoup.connect("http://cy.cyworld.com/home/" + tid + "/postlist?folderid=" + folder.getId() + "&listsize=10")
+			posts = Jsoup.connect("http://cy.cyworld.com/home/" + tid + "/postlist?folderid=" + folder.getId() + "&listsize=10")
 				.userAgent(userAgent)
 				.header("Referer", "http://cy.cyworld.com/home/" + tid)
 				.header("Accept", accept)
@@ -168,33 +172,39 @@ public class CyScrapping extends Common {
 				.cookies(loginCookie) // 위에서 얻은 '로그인 된' 쿠키
 				.ignoreHttpErrors(true).validateTLSCertificates(false).followRedirects(true)
 				.get();
-
-		for(Element el:posts.select("article"))	{
-			Post post = new Post();
-			post.setId(el.attr("id").substring(0, el.attr("id").indexOf("_")));
-			post.setTitle(el.getElementsByTag("h3").text());
-
-			Long createAt = Long.valueOf(el.attr("id").substring(el.attr("id").indexOf("_") + 1));
-			Date createDate = new Date(createAt);
-			String yyyymm = formatYYYYMM.format(createDate);
-			String yyyymmdd = formatYYYYMMDD.format(createDate);
-
-			post.setCreateAt(createAt);
-			post.setYyyymm(yyyymm);
-			post.setYyyymmdd(yyyymmdd);
-
-			String style_thumbString = el.getElementsByTag("figure").attr("style");
-			//post.setThumb(UrlUtil.getUrlFromStyle(style_thumbString));
-			//post.setImgs(getImageFromPost(tid, loginCookie, post));
-			post.setFolderId(folder.getId());
-			postList.add(post);
-
-			//DescFieldUtil.AppendString(descField, "getPostListPageOne:" + post.getYyyymmdd() + ":" + post.getTitle());
-
-			//사진가져오기
-			getImageFromPost(tid, loginCookie, folder, post, descField);
-
+		} catch (Exception e)	{
+			DescFieldUtil.AppendString(descField, "폴더:" + folder.getName() + "...포스트 목록 가져오기 실패");
 		}
+		
+		if(posts != null)
+
+			for(Element el:posts.select("article"))	{
+				Post post = new Post();
+				post.setId(el.attr("id").substring(0, el.attr("id").indexOf("_")));
+				post.setTitle(el.getElementsByTag("h3").text());
+	
+				Long createAt = Long.valueOf(el.attr("id").substring(el.attr("id").indexOf("_") + 1));
+				Date createDate = new Date(createAt);
+				String yyyymm = formatYYYYMM.format(createDate);
+				String yyyymmdd = formatYYYYMMDD.format(createDate);
+	
+				post.setCreateAt(createAt);
+				post.setYyyymm(yyyymm);
+				post.setYyyymmdd(yyyymmdd);
+	
+				String style_thumbString = el.getElementsByTag("figure").attr("style");
+				//post.setThumb(UrlUtil.getUrlFromStyle(style_thumbString));
+				//post.setImgs(getImageFromPost(tid, loginCookie, post));
+				post.setFolderId(folder.getId());
+				postList.add(post);
+	
+				//DescFieldUtil.AppendString(descField, "getPostListPageOne:" + post.getYyyymmdd() + ":" + post.getTitle());
+	
+				//사진가져오기
+
+				getImageFromPost(tid, loginCookie, folder, post, descField);
+	
+			}
 
 		/*
 			Post lastPost_before = postList.get(postList.size() - 1);
@@ -234,7 +244,11 @@ public class CyScrapping extends Common {
 
 		try {
 
-			Document posts = Jsoup.connect("http://cy.cyworld.com/home/" + tid + "/postmore?folderid=" + folder_id + "&lastid=" + lastid + "&lastdate=" + lastdate + "&lastyymm=" + lastyymm + "&startdate=&enddate=&tagname=&listsize=10")
+			Document posts = null;
+			
+			try {
+				
+			posts = Jsoup.connect("http://cy.cyworld.com/home/" + tid + "/postmore?folderid=" + folder_id + "&lastid=" + lastid + "&lastdate=" + lastdate + "&lastyymm=" + lastyymm + "&startdate=&enddate=&tagname=&listsize=10")
 					.userAgent(userAgent)
 					.header("Referer", "http://cy.cyworld.com/home/" + tid)
 					.header("Accept", accept)
@@ -244,6 +258,9 @@ public class CyScrapping extends Common {
 					.cookies(loginCookie) // 위에서 얻은 '로그인 된' 쿠키
 					.ignoreHttpErrors(true).validateTLSCertificates(false).followRedirects(true)
 					.get();
+			} catch (Exception e)	{
+				descField.appendText(e.getMessage() + "\n 포스트 목록 처리중 오류가 발생하였습니다.(2-0)\n");
+			}
 
 			for(Element el:posts.select("article"))	{
 
@@ -274,13 +291,14 @@ public class CyScrapping extends Common {
 					//DescFieldUtil.AppendString(descField, "getMorePostList:" + post.getYyyymmdd() + ":" + post.getTitle());
 
 				} catch (Exception e)	{
+					descField.appendText(e.getMessage() + "\n 포스트 목록 처리중 오류가 발생하였습니다.(2-2)\n");
 					//descField.appendText(e.getMessage() + "\n 포스트 목록 처리중 오류가 발생하였습니다.(2-2)\n");
 				}
 			}
 
 
 		} catch (Exception e)	{
-			//descField.appendText(e.getMessage() + "\n 포스트 목록 처리중 오류가 발생하였습니다.(2-1)\n");
+			descField.appendText(e.getMessage() + "\n 포스트 목록 처리중 오류가 발생하였습니다.(2-1)\n");
 		}
 
 
@@ -293,8 +311,12 @@ public class CyScrapping extends Common {
 		try {
 
 			//DescFieldUtil.AppendString(descField, "이미지 목록 가져오는중...");
+			
+			Document postDoc = null;
+			
+			try	{
 
-			Document postDoc = Jsoup.connect("http://cy.cyworld.com/home/" + tid + "/post/" + post.getId())
+				postDoc = Jsoup.connect("http://cy.cyworld.com/home/" + tid + "/post/" + post.getId())
 					.userAgent(userAgent)
 					.header("Referer", "http://cy.cyworld.com/home/" + tid)
 					.header("Accept", accept)
@@ -304,9 +326,15 @@ public class CyScrapping extends Common {
 					.cookies(loginCookie) // 위에서 얻은 '로그인 된' 쿠키
 					.ignoreHttpErrors(true).validateTLSCertificates(false).followRedirects(true)
 					.get();
+			} catch (Exception e)	{
+				
+			}
 
 			//Element postEl = postDoc.getElementById("postData");
 			//이미지
+			
+			if(postDoc != null)	{
+			
 			Elements imgBoxEls = postDoc.getElementsByClass("post imageBox cyco-imagelet");
 
 			for(Element tmpEl:imgBoxEls)	{
@@ -366,28 +394,35 @@ public class CyScrapping extends Common {
 			}
 
 			//해당 포스트의 이미지 가져오기
-			DescFieldUtil.AppendString(descField,  "\n사진다운로드:" + post.getTitle() + ":" + imgList.size());
+			DescFieldUtil.AppendString(descField,  "\n\t(포스트) \"" + post.getTitle() + "\" 처리중: 이미지 " + imgList.size() + "개");
 			int imgCnt = 0;
 			for(String img:imgList)	{
 				System.out.println(imgList.get(imgCnt++));
 				try {
+					DescFieldUtil.AppendString(descField,  "\t\t(다운로드 " + imgCnt + ") " + filePrefix + StringUtil.convertFilename(getFileName(img)));
+					//DescFieldUtil.AppendString(descField,  "\n\t" + img + ":" + filePrefix + StringUtil.convertFilename(getFileName(img)));
 					downloadUsingNIO(img,  filePrefix + StringUtil.convertFilename(getFileName(img)));
+					/*
 					if(imgCnt == 1)
 						DescFieldUtil.AppendString(descField, "*" + String.valueOf(imgCnt), false);
 					else
 						DescFieldUtil.AppendString(descField, ", *" + imgCnt, false);
+					*/
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
-					e.printStackTrace();
+					//e.printStackTrace();
+					DescFieldUtil.AppendString(descField,  "\t\t--->(오류-다운로드실패) " + img);
 				}
 			}
 			//DescFieldUtil.AppendString(descField,  post.getTitle() + ":" + imgCnt + "개 이미지 다운로드");
 
 			//0.1초 쉬기 (포스트 하나당)
 			Thread.sleep(100);
+			}
 
 		} catch (Exception e)	{
 
+			DescFieldUtil.AppendString(descField,  "\t\t(실패) " + post.getTitle() + ":" + imgList.size() + ":" + "http://cy.cyworld.com/home/" + tid + "/post/" + post.getId());
 			e.printStackTrace();
 		}
 
@@ -406,7 +441,7 @@ public class CyScrapping extends Common {
 				if(path.lastIndexOf('/') > -1)
 					fileName = path.substring(path.lastIndexOf('/') + 1);
 				else if(path.lastIndexOf("%2F") > -1)
-					fileName = path.substring(path.lastIndexOf("%2F") + 4);
+					fileName = path.substring(path.lastIndexOf("%2F") - 1 + 4);
 			} else if(url.indexOf("c2down.cyworld.co.kr") > -1)	{
 				fileName = url.substring(url.indexOf("&name=") + 6);
 			}	
